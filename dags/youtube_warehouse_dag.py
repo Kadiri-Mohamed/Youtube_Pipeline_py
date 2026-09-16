@@ -57,7 +57,10 @@ def youtube_warehouse():
             );
         """)
 
+        # Insert & Update
+
         for video in videos:
+
             cursor.execute("""
                 INSERT INTO staging.youtube_videos (
                     video_id,
@@ -69,6 +72,7 @@ def youtube_warehouse():
                     comments
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
+
                 ON CONFLICT (video_id)
                 DO UPDATE SET
                     title = EXCLUDED.title,
@@ -87,12 +91,38 @@ def youtube_warehouse():
                 video["comments"]
             ))
 
+        # Delete
+
+        source_video_ids = {
+            video["video_id"]
+            for video in videos
+        }
+
+        cursor.execute("""
+            SELECT video_id
+            FROM staging.youtube_videos;
+        """)
+
+        staging_video_ids = {
+            row[0]
+            for row in cursor.fetchall()
+        }
+
+        videos_to_delete = staging_video_ids - source_video_ids
+
+        for video_id in videos_to_delete:
+            cursor.execute("""
+                DELETE FROM staging.youtube_videos
+                WHERE video_id = %s;
+            """, (video_id,))
+
         connection.commit()
+
+        print(f"Source videos: {len(source_video_ids)}")
+        print(f"Deleted videos: {len(videos_to_delete)}")
 
         cursor.close()
         connection.close()
-
-        print(f"Staging updated with {len(videos)} videos")
 
     videos = read_json()
     update_staging(videos)
