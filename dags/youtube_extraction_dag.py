@@ -6,6 +6,7 @@ from pathlib import Path
 from airflow.decorators import dag, task
 from airflow.models import Variable
 from googleapiclient.discovery import build
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 
 @dag(
@@ -155,7 +156,13 @@ def youtube_extraction():
     playlist_id = get_playlist(channel_id)
     video_ids = get_video_ids(playlist_id)
     videos = get_video_details(video_ids)
-    save_json(videos)
+    json_file = save_json(videos)
+
+    trigger_warehouse = TriggerDagRunOperator(
+        task_id="trigger_warehouse",
+        trigger_dag_id="youtube_warehouse",
+    )
+    json_file >> trigger_warehouse
 
 
 youtube_extraction()
