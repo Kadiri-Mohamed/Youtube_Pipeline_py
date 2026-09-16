@@ -1,6 +1,8 @@
 from datetime import datetime
+
 import json
 from pathlib import Path
+
 from airflow.decorators import dag, task
 from airflow.models import Variable
 from googleapiclient.discovery import build
@@ -133,11 +135,27 @@ def youtube_extraction():
         print(f"Number of video details: {len(videos)}")
 
         return videos
+    
+    @task
+    def save_json(videos):
+        data_dir = Path("/opt/airflow/data")
+        data_dir.mkdir(parents=True, exist_ok=True)
+
+        file_name = f"YT_data_{datetime.now().strftime('%Y-%m-%d')}.json"
+        file_path = data_dir / file_name
+
+        with open(file_path, "w", encoding="utf-8") as file:
+            json.dump(videos, file, ensure_ascii=False, indent=4)
+
+        print(f"JSON file saved: {file_path}")
+
+        return str(file_path)
 
     channel_id = extract_channel()
     playlist_id = get_playlist(channel_id)
     video_ids = get_video_ids(playlist_id)
-    get_video_details(video_ids)
+    videos = get_video_details(video_ids)
+    save_json(videos)
 
 
 youtube_extraction()
