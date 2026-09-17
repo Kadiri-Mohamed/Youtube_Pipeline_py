@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 from pathlib import Path
+import re
 
 from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -123,9 +124,58 @@ def youtube_warehouse():
 
         cursor.close()
         connection.close()
+    def duration_to_seconds(duration):
+        if not duration:
+            return None
 
+        match = re.fullmatch(
+            r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?",
+            duration
+        )
+
+        if not match:
+            return None
+
+        hours = int(match.group(1) or 0)
+        minutes = int(match.group(2) or 0)
+        seconds = int(match.group(3) or 0)
+
+        return hours * 3600 + minutes * 60 + seconds
+    @task
+    def transform(videos):
+    
+        transformed_videos = []
+    
+        for video in videos:
+        
+            transformed_video = {
+                "video_id": video["video_id"],
+                "title": video["title"],
+                "published_at": datetime.fromisoformat(
+                    video["published_at"].replace("Z", "+00:00")
+                ),
+                "duration_seconds": duration_to_seconds(
+                    video["duration"]
+                ),
+                "views": int(video["views"]) if video["views"] is not None else 0,
+                "likes": int(video["likes"]) if video["likes"] is not None else 0,
+                "comments": int(video["comments"]) if video["comments"] is not None else 0,
+            }
+    
+            transformed_videos.append(transformed_video)
+    
+        print(f"Transformed videos: {len(transformed_videos)}")
+    
+        return transformed_videos
+    
+    
+    
+    
     videos = read_json()
+    
     update_staging(videos)
+    
+    transformed_videos = transform(videos)
 
 
 youtube_warehouse()
