@@ -121,6 +121,7 @@ def youtube_warehouse():
 
         cursor.close()
         connection.close()
+        return videos
     def duration_to_seconds(duration):
         if not duration:
             return None
@@ -219,6 +220,29 @@ def youtube_warehouse():
                 video["likes"],
                 video["comments"]
             ))
+            
+        source_video_ids = {
+            video["video_id"]
+            for video in videos
+        }
+        
+        cursor.execute("""
+            SELECT video_id
+            FROM core.youtube_videos;
+        """)
+        
+        core_video_ids = {
+            row[0]
+            for row in cursor.fetchall()
+        }
+        
+        videos_to_delete = core_video_ids - source_video_ids
+        
+        for video_id in videos_to_delete:
+            cursor.execute("""
+                DELETE FROM core.youtube_videos
+                WHERE video_id = %s;
+            """, (video_id,))
 
         connection.commit()
 
@@ -230,11 +254,11 @@ def youtube_warehouse():
     
     
     videos = read_json()
-    
-    update_staging(videos)
-    
-    transformed_videos = transform(videos)
-    
+
+    staged_videos = update_staging(videos)
+
+    transformed_videos = transform(staged_videos)
+
     update_core(transformed_videos)
 
 
