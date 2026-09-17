@@ -164,7 +164,68 @@ def youtube_warehouse():
         print(f"Transformed videos: {len(transformed_videos)}")
     
         return transformed_videos
-    
+    @task
+    def update_core(videos):
+
+        hook = PostgresHook(
+            postgres_conn_id="postgres_db_yt_elt"
+        )
+
+        connection = hook.get_conn()
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            CREATE SCHEMA IF NOT EXISTS core;
+
+            CREATE TABLE IF NOT EXISTS core.youtube_videos (
+                video_id VARCHAR(20) PRIMARY KEY,
+                title TEXT,
+                published_at TIMESTAMP,
+                duration_seconds INTEGER,
+                views BIGINT,
+                likes BIGINT,
+                comments BIGINT
+            );
+        """)
+
+        for video in videos:
+
+            cursor.execute("""
+                INSERT INTO core.youtube_videos (
+                    video_id,
+                    title,
+                    published_at,
+                    duration_seconds,
+                    views,
+                    likes,
+                    comments
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+
+                ON CONFLICT (video_id)
+                DO UPDATE SET
+                    title = EXCLUDED.title,
+                    published_at = EXCLUDED.published_at,
+                    duration_seconds = EXCLUDED.duration_seconds,
+                    views = EXCLUDED.views,
+                    likes = EXCLUDED.likes,
+                    comments = EXCLUDED.comments;
+            """, (
+                video["video_id"],
+                video["title"],
+                video["published_at"],
+                video["duration_seconds"],
+                video["views"],
+                video["likes"],
+                video["comments"]
+            ))
+
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+        print(f"Core updated with {len(videos)} videos")
     
     
     
@@ -173,6 +234,8 @@ def youtube_warehouse():
     update_staging(videos)
     
     transformed_videos = transform(videos)
+    
+    update_core(transformed_videos)
 
 
 youtube_warehouse()
