@@ -9,9 +9,6 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 @dag(
     dag_id="youtube_warehouse",
-    start_date=datetime(2026, 1, 1),
-    schedule=None,
-    catchup=False,
     tags=["youtube", "warehouse"],
 )
 def youtube_warehouse():
