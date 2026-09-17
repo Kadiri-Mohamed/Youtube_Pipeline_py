@@ -11,8 +11,8 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 @dag(
     dag_id="youtube_extraction",
-    start_date=datetime(2026, 1, 1),
-    schedule=None,
+    start_date=datetime(2026, 9, 16),
+    schedule="@daily",
     catchup=False,
     tags=["youtube", "extraction"],
 )
